@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        padding: 0;
+        margin: 0;
+      }
+      p {
+        padding: 10px;
+        margin: 0;
+      }
+      ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0 10px;
+        max-height: 420px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+      }
+      li {
+        background: #fff;
+        padding: 6px 10px;
+        margin-bottom: 2px;
+        border: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: grab;
+      }
+      li.top10 {
+        background: #e8f5e9; /* light green */
+      }
+      li:hover {
+        background: #f0f0f0;
+      }
+      button {
+        background: transparent;
+        border: none;
+        color: red;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      #submitBtn {
+        margin: 12px 10px;
+        padding: 8px 12px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        width: calc(100% - 20px);
+        border-radius: 4px;
+      }
+      .rank {
+        display: inline-block;
+        width: 24px;
+        font-weight: bold;
+        margin-right: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <p><strong>Σύρετε για να αλλάξετε σειρά ή πατήστε ❌ για αφαίρεση</strong><br>Μόνο οι <strong>10 πρώτες</strong> θα καταχωρηθούν.</p>
+    <button onclick="refreshList()" style="margin: 10px;">🔄 Ανανέωση Λίστας</button>
+
+    <ul id="locationList"></ul>
+    <button id="submitBtn" onclick="submit()">✅ Καταχώριση Σειράς</button>
+
+    <script>
+      let allLocations = [];
+
+      google.script.run.withSuccessHandler(data => {
+        allLocations = [...data];
+        renderList();
+      }).getAllLocations();
+
+      function renderList() {
+        const ul = document.getElementById("locationList");
+        ul.innerHTML = "";
+
+        allLocations.forEach((loc, index) => {
+          const li = document.createElement("li");
+          li.setAttribute("data-loc", loc);
+          li.innerHTML = `
+            <span>
+              <span class="rank">${index + 1}.</span> ${loc}
+            </span>
+            <button onclick="removeItem('${loc}')">❌</button>
+          `;
+          ul.appendChild(li);
+        });
+
+        Sortable.create(ul, {
+          animation: 150,
+          onEnd: updateRanks
+        });
+
+        updateRanks(); // Initial rank + highlighting
+      }
+
+      function refreshList() {
+        google.script.run.withSuccessHandler(data => {
+          allLocations = [...data];
+          renderList();
+        }).getAllLocations();
+      }
+
+      function updateRanks() {
+        const items = document.querySelectorAll("#locationList li");
+        items.forEach((li, index) => {
+          const rankSpan = li.querySelector(".rank");
+          if (rankSpan) rankSpan.textContent = `${index + 1}.`;
+          li.classList.toggle("top10", index < 10);
+        });
+      }
+
+      function removeItem(loc) {
+        allLocations = allLocations.filter(l => l !== loc);
+        renderList();
+      }
+
+      function submit() {
+        const reordered = [...document.querySelectorAll("#locationList li")]
+          .map(li => li.getAttribute("data-loc"))
+          .slice(0, 10); // only top 10
+        google.script.run.withSuccessHandler(res => {
+          google.script.host.close(); // ✅ closes the sidebar silently
+        }).submitOrderedList(reordered);
+      }
+    </script>
+  </body>
+</html>
